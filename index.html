@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Hawker Culture in Malaysia — Interactive Dashboard</title>
+
+  <!-- Vega libraries -->
+  <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vega-embed@6.17.0"></script>
+
+  <style>
+    :root{
+      --bg:#fffaf4; --panel:#fff; --ink:#1f2937; --muted:#6b7280;
+      --brand:#c67c3e; --brand-700:#9c5d28; --accent:#386a20;
+      --line:#f1e7dc; --chip:#f6ede2;
+    }
+    html{scroll-behavior:smooth}
+    body{margin:0;background:var(--bg);color:var(--ink);font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;line-height:1.5}
+
+    .nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(6px);background:color-mix(in srgb,var(--bg) 70%,white 30%);border-bottom:1px solid var(--line)}
+    .nav-inner{max-width:1200px;margin:0 auto;padding:12px 18px;display:flex;gap:20px;align-items:center;justify-content:space-between}
+    .brand{font-weight:800;letter-spacing:.3px;color:var(--brand-700)}
+    .tabs{display:flex;gap:16px;flex-wrap:wrap}
+    .tabs a{color:var(--ink);text-decoration:none;font-weight:600;padding:8px 12px;border-radius:999px;border:1px solid transparent}
+    .tabs a:hover{background:var(--chip);border-color:var(--line)}
+
+    .hero{background:linear-gradient(180deg,#f7efe6,transparent 70%);border-bottom:1px solid var(--line)}
+    .hero-inner{max-width:1200px;margin:0 auto;padding:42px 18px 26px;display:grid;grid-template-columns:1fr;place-items:center}
+    h1{font-size:clamp(28px,5vw,48px);line-height:1.15;margin:0 0 6px;font-weight:900;letter-spacing:.2px;color:var(--brand-700)}
+    .kicker{color:var(--accent);text-transform:uppercase;font-weight:800;letter-spacing:.12em}
+    .lead{color:var(--muted);font-size:clamp(16px,2.2vw,18px);margin:8px 0 0}
+
+    main{max-width:1200px;margin:28px auto 80px;padding:0 18px}
+    section{margin:60px 0}
+    h2{font-size:clamp(22px,3vw,30px);margin:0 0 24px;color:var(--accent);font-weight:900;padding-bottom:12px;border-bottom:2px solid var(--line)}
+
+    .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px;box-shadow:0 1px 0 rgba(0,0,0,.02);margin-bottom:24px;position:relative}
+
+    .viz{width:100%;min-height:560px}
+    .vega-embed, .vega-embed > div{width:100% !important}
+
+    .explain-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:12px}
+    .chip{display:inline-block;margin:10px 0 6px;padding:6px 12px;background:#e6f2ff;color:#1f6a8a;border-radius:999px;font-size:12px;font-weight:700}
+    .stat-row{display:flex;gap:16px;margin-top:14px}
+    .stat{flex:1;background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px;text-align:center}
+    .stat .v{font-weight:800;color:var(--brand-700);font-size:22px}
+
+    .chart-container{display:grid;grid-template-columns:2fr 1fr;gap:40px;align-items:start}
+    .chart-explanation{padding:20px;background:#f9f5f0;border-radius:12px;border-left:4px solid var(--brand)}
+    .chart-explanation h3{margin:0 0 12px;color:var(--brand-700);font-size:18px}
+
+    @media (max-width:960px){
+      .chart-container, .explain-grid{grid-template-columns:1fr}
+      .viz{min-height:500px}
+    }
+
+    footer{border-top:1px solid var(--line);background:#fff}
+    .footer-inner{max-width:1200px;margin:0 auto;padding:24px 18px 50px;color:var(--muted)}
+    .foot-grid{display:grid;grid-template-columns:1fr;gap:16px}
+
+    .top{position:fixed;right:16px;bottom:16px;z-index:60;width:44px;height:44px;border-radius:50%;background:var(--accent);color:#fff;border:none;box-shadow:0 10px 20px rgba(0,0,0,.12);display:grid;place-items:center;cursor:pointer;opacity:0;visibility:hidden;transition:.25s}
+    .top.show{opacity:1;visibility:visible}
+    .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+  </style>
+</head>
+<body>
+
+  <nav class="nav">
+    <div class="nav-inner">
+      <div class="brand">🍜 Hawker Food in Malaysia</div>
+      <div class="tabs">
+        <a href="#map">Map by State</a>
+        <a href="#mix">Food mix by State</a>
+        <a href="#top20">Top 20 foods</a>
+        <a href="#populationCorrelation">Street Food by Location</a>
+        <a href="#categoryRing">Hawker stalls by land use</a>
+        <a href="#stallsHeat">Hawker Stall Types</a>
+        <a href="#about">Data & Sources</a>
+      </div>
+    </div>
+  </nav>
+
+  <header class="hero hero--center" id="home">
+    <div class="hero-inner">
+      <div>
+        <div class="kicker">Visual Story</div>
+        <h1>Hawker Culture in Malaysia</h1>
+        <p class="lead">A data-driven tour of Malaysia’s street-food universe—showing where food variety concentrates, which dishes dominate, and how hawker spaces weave into our cities and towns.</p>
+      </div>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- 1) MAP -->
+    <section id="map">
+      <h2>1) Geographic Distribution of Street Foods</h2>
+      <div class="card">
+        <div class="viz" id="visMap"></div>
+
+        <div class="explain-grid">
+  <div>
+    <div class="chip">Choropleth Map</div>
+    <h3> Where food variety concentrates</h3>
+    <p>
+      The Klang Valley anchors Malaysia’s street-food diversity: 
+      <strong style="color:var(--brand-700)">Selangor — 2,345</strong> and 
+      <strong style="color:var(--brand-700)">W.P. Kuala Lumpur — 2,146</strong> together account for 
+      <strong style="color:var(--brand-700)">≈43%</strong> of all documented items (<strong>10,520</strong> across the country).
+    </p>
+    <p>
+      A standout on the east coast is 
+      <strong style="color:var(--brand-700)">Terengganu — 1,395</strong>, ranking third overall despite a smaller population—evidence of a deep hawker tradition and strong local demand.
+    </p>
+    <p>
+      The mid-tier corridor is formed by 
+      <strong style="color:var(--brand-700)">Pahang — 959</strong>, 
+      <strong style="color:var(--brand-700)">Melaka — 839</strong>, and 
+      <strong style="color:var(--brand-700)">Negeri Sembilan — 802</strong>, each with sizeable, well-distributed offerings.
+    </p>
+  </div>
+  <div>
+    <h3 style="margin-top:0">Regional contrasts & coverage</h3>
+    <p>
+      In the south, <strong style="color:var(--brand-700)">Johor — 570</strong> shows a broad footprint of hawker activity (many surveyed locations) with a moderate item count—consistent with a widespread, everyday street-food presence.
+    </p>
+    <p>
+      The northern belt is more compact: 
+      <strong style="color:var(--brand-700)">Penang — 200</strong>, 
+      <strong style="color:var(--brand-700)">Kedah — 217</strong>, and 
+      <strong style="color:var(--brand-700)">Perlis — 109</strong>. 
+      Totals are leaner here but reflect distinctive, region-specific specialties.
+    </p>
+    <p>
+      In East Malaysia, 
+      <strong style="color:var(--brand-700)">Sarawak — 243</strong> and 
+      <strong style="color:var(--brand-700)">Sabah — 137</strong> register lower counts in this dataset—likely a mix of unique local cuisines and survey coverage. 
+      Even so, the map highlights clear clusters of hawker variety around urban centers.
+    </p>
+  </div>
+</div>
+
+    </section>
+
+    <!-- 2) MIX -->
+    <section id="mix">
+      <h2>2) Food Category Distribution Across States</h2>
+      <div class="chart-container">
+        <div class="card"><div class="viz" id="vis1"></div></div>
+      <div class="chart-explanation">
+  <div class="chip">Stacked Bar Chart</div>
+  <h3>Regional food preferences</h3>
+
+  <p>
+    Different states lean on different pillars of hawker culture. 
+    <strong style="color:#f1c232; font-size:1.08em;">Main meals</strong> define 
+    <strong style="color:var(--brand-700)">Penang</strong>, with rice and noodle dishes shaping its street-food identity. 
+    In contrast, <strong style="color:var(--brand-700)">Melaka</strong> is led by 
+    <strong style="color:#6aa84f; font-size:1.08em;">snacks</strong>, reflecting lively night-market and quick-bite traditions.
+  </p>
+
+  <p>
+    For sweets, <strong style="color:var(--brand-700)">Kelantan</strong> stands out, where 
+    <strong style="color:#7fb3d5; font-size:1.08em;">desserts</strong> take the biggest share, echoing its rich kuih culture. 
+    At the other end, <strong style="color:var(--brand-700)">Kuala Lumpur</strong> shows the slimmest 
+    <strong style="color:#7fb3d5; font-size:1.08em;">dessert</strong> presence, pointing to a stronger focus on savoury everyday choices.
+  </p>
+
+  <p>
+    <strong style="color:var(--brand-700)">Sarawak</strong> keeps 
+    <strong style="color:#6aa84f; font-size:1.08em;">snacks</strong> at the lowest share nationwide, hinting at a tilt toward 
+    <strong style="color:#f1c232; font-size:1.08em;">main meals</strong> and local delicacies. 
+    <strong style="color:var(--brand-700)">Johor</strong> reads as balanced, with 
+    <strong style="color:#f1c232; font-size:1.08em;">main meals</strong>, 
+    <strong style="color:#6aa84f; font-size:1.08em;">snacks</strong>, and 
+    <strong style="color:#7fb3d5; font-size:1.08em;">desserts</strong> each maintaining visible space across its many locations.
+  </p>
+</div>
+    </section>
+
+    <!-- 3) TOP 20 -->
+    <section id="top20">
+      <h2>3) Most Popular Street Foods Nationwide</h2>
+      <div class="chart-container">
+        <div class="card"><div class="viz" id="vis2"></div></div>
+        <div class="chart-explanation">
+  <div class="chip">Lollipop Chart</div>
+  <h3>Nationwide favourites</h3>
+
+  <p>
+    The very top of the list tilts toward quick treats. 
+    <strong style="color:#7fb3d5; font-size:1.08em;">Desserts</strong> lead with 
+    <strong>Apam Balik</strong>, followed by <strong>Cakes</strong> and <strong>Doughnuts</strong>. 
+    Close behind are crowd-pulling 
+    <strong style="color:#6aa84f; font-size:1.08em;">Snacks</strong> such as <strong>Fried Chicken</strong>, <strong>Keropok Lekor</strong>, and <strong>Satay</strong>.
+  </p>
+
+  <p>
+    Core staples still anchor the chart. 
+    <strong>Nasi Lemak</strong> is the most prominent among 
+    <strong style="color:#f1c232; font-size:1.08em;">Main meals</strong>, joined by favourites like <strong>Fried Noodles</strong>, 
+    <strong>Penang Laksa</strong>, <strong>Fried Kuey Teow</strong>, and <strong>Fried Rice</strong>. 
+    These dishes reflect everyday meals that appear across nearly every state.
+  </p>
+
+  <p>
+    The ranking shows two clear currents: a sweet-and-snack stream that fuels impulse buys and festive energy, 
+    and a foundation of hearty meals that sustain daily demand. 
+    Together, they capture the dual heartbeat of Malaysia’s hawker culture.
+  </p>
+</div>
+
+
+    </section>
+
+    <!-- 4) POPULATION -->
+    <section id="populationCorrelation">
+      <h2>4) Street Food Availability Patterns</h2>
+      <div class="chart-container">
+        <div class="card"><div class="viz" id="vis6"></div></div>
+       <div class="chart-explanation">
+  <div class="chip">Bubble Chart</div>
+  <h3>Street food availability patterns</h3>
+
+  <p>
+    Two clear patterns emerge. Some places pack a lot of variety into relatively few surveyed spots: 
+    <strong style="color:var(--brand-700)">W.P. Kuala Lumpur</strong>, 
+    <strong style="color:var(--brand-700)">Selangor</strong> and
+    <strong style="color:var(--brand-700)">Terengganu</strong> show high menu density at each location.
+  </p>
+
+  <p>
+    Others spread hawker options widely across many towns and districts. 
+    <strong style="color:var(--brand-700)">Johor</strong> has the broadest coverage (most locations), 
+    while <strong style="color:var(--brand-700)">Perak</strong> and <strong style="color:var(--brand-700)">Penang</strong> also fan out across numerous sites, 
+    trading depth at each stop for everyday reach.
+  </p>
+
+  <p>
+    In the east, <strong style="color:var(--brand-700)">Sarawak</strong> and <strong style="color:var(--brand-700)">Sabah</strong> register modest totals with dispersed locations. 
+    <strong style="color:var(--brand-700)">Kelantan</strong> stands out for very high menu density at a small number of surveyed places, 
+    suggesting concentrated hotspots rather than wide coverage.
+  </p>
+</div>
+
+    </section>
+
+    <!-- 5) LAND USE  -->
+    <section id="categoryRing">
+      <h2>5) Hawker Stall Location Analysis</h2>
+      <div class="chart-container">
+        <div class="card"><div class="viz" id="vis7"></div></div>
+        <div class="chart-explanation">
+          <div class="chip">Pie Chart</div>
+<h3>Spatial Distribution</h3>
+
+<p>
+  Stalls concentrate where daily routines meet foot traffic. The biggest shares sit in 
+  <strong style="color:#c8a2c8;">Commercial</strong> areas and 
+  <strong style="color:#f1c232;">Residential</strong> neighborhoods, reflecting office lunches, after-work dinners, and walk-up convenience in housing estates.
+</p>
+
+<p>
+  Three settings play steady supporting roles. 
+  <strong style="color:#7fb3d5;">Other</strong> sites include transport nodes and industrial edges that host regular crowds. 
+  <strong style="color:#a7a7a7;">Open Space &amp; Recreational</strong> locations such as parks and waterfronts attract weekend bazaars and evening stroll snacks. 
+  <strong style="color:#6aa84f;">Social Institution &amp; Facilities</strong> areas around schools, clinics, and halls create timed surges before and after events.
+</p>
+
+<p>
+  <strong style="color:#1f6a8a;">Agricultural</strong> zones capture rural markets tied to produce days and food routes. 
+  A small but visible slice appears on 
+  <strong style="color:#9c5d28;">Vacant</strong> land, often used for pop-ups and festive night markets.
+</p>
+    </section>
+
+    <!-- 6) STALL TYPES  -->
+    <section id="stallsHeat">
+      <h2>6) Hawker Stall Infrastructure</h2>
+      <div class="chart-container">
+        <div class="card"><div class="viz" id="vis8"></div></div>
+        <div class="chart-explanation">
+          <div class="chip">Bubble Chart</div>
+<h3>Vendor Business Models</h3>
+
+<p>
+  Street trade is anchored by larger, fixed setups. 
+  <strong style="color:#7fb3d5;">Metal stall</strong> has the biggest footprint, 
+  closely followed by <strong style="color:#c8a2c8;">Large stall</strong>  and 
+  <strong style="color:#f1c232;">One piece</strong>. 
+  These formats suit daily, high-throughput service at markets and food courts.
+</p>
+
+<p>
+  The middle tier is built by 
+  <strong style="color:#9c5d28;">Table</strong> and 
+  <strong style="color:#6aa84f;">Restaurant</strong> setups. 
+  Tables keep entry costs low for small vendors, while restaurant-style stalls provide stable seating and regulars.
+</p>
+
+<p>
+  Mobile and temporary types form smaller slices. 
+  <strong style="color:#1f6a8a;">Food truck</strong> and 
+  <strong style="color:#386a20;">Wheeled</strong> carts bring flexibility for events and night markets, 
+  and <strong style="color:#a7a7a7;">Market</strong> booths appear as the smallest category, 
+  often seasonal or tied to specific trading days.
+</p>
+    </section>
+
+  </main>
+
+  <!-- Footer  -->
+  <footer id="about">
+    <div class="footer-inner">
+      <div class="foot-grid">
+        <div>
+          <strong>Data & Sources</strong>
+          <ul style="margin:8px 0 0 18px">
+            <li>
+              <a href="https://pdf.sciencedirectassets.com/776464/1-s2.0-S2666154324X00058/1-s2.0-S266615432500095X/main.pdf?X-Amz-Security-Token=IQoJb3JpZ2luX2VjEEoaCXVzLWVhc3QtMSJGMEQCIClPEZU2oVNds64APISM0%2FfAhOPtOq4A%2BBNsos6VEjfHAiBPHZohVQj2Srmn8oUMdd3Jb1qacUfS8a2uyU8sQjY%2Bliq8BQjz%2F%2F%2F%2F%2F%2F%2F%2F%2F%2F8BEAUaDDA1OTAwMzU0Njg2NSIMHhj8XjWRDsMrRmf3KpAF%2BNCkrhp1cy2gEPaUw%2BQ83DdxU4fNklQE4sQa%2FFirXkwKBpKrKll37bb12FJbW0SCzdAIl8SYZ%2FJ1fF3FkLCXeXP9vLiYURD5bgvkgO5ymEnJ8AAyTqbNY02gl%2BYZGlG6Sph7Wi13014mFhdiAIrm2EsKK9Swql2bp2js%2Futi5y182N%2F3%2By5bh0KrXLcxY4bZ%2BWPj0012RJoc4QsadxOnnVrI8hOs7QYs3MXTtOgShwSZjQrCbC5V0QrLfAItQotmDjBI6JDiLs3mzGXwDGuFBzb9fdz3U92HeiUaKhs62scmM5Gmm0ATlvZf049hjJTucX93YPSwLQaxAla%2FOxB9n3Cs6rITTHYobDmmC7e24OR%2BSyjBK40ys0YB6GnKbkJc8uh4uJ%2F%2BaWEG%2Ff9ChL1%2F%2F3oJGHTg0hbzj1sL98qRbCEsWMj1oj16eXrp3IMK9yBmsMfJcenlB9uCE%2F9EGELaGPnJejQa3YbH3A8GAqZxwFFtaVQ%2BgOtAXWyMtSGtASJ8irxJ%2FzSenSLkowTkFD5HydeTakFN68TvdjfTYgfBkCyf%2BSussSS9onbz8e%2FDcIztMebvWY9UvsVCANxLbwEUm%2B9fvRrp2onFGxGb6o8RKfnZjtgVWRwmielVvsJptMQEBKsTdXJTJw5lvCXp0Q%2B5gUg4WB8sra8IE3ovfoOgAJSpPgumaeedpVKHOphlx6oGV6CwZuiGLBg2mESZqMeorl3ninpg2lXTZuAwYz%2Bkbke4lF%2F1nak3RdaKNtGr3PgfhpfDkV6SwZGEKOpKU3aB%2Fbnf1mWhJqeUhJ6QBn8nLzcBR549xqE7ySLCS853AGu6OcjoMsDEpoY5Dgd1fYYuavpop%2BUUYXE07Pu5SpcJZigwn%2BLZxwY6sgFd0Jez3ZQPpPe6Hzxl9%2FYkmr8cyjzO09K0zRGgbVBoj58V%2FxFwdrbAdBfVv7rn2C1BsfbuNrLV%2FOdFnwdW7iNZsm9Z4LB83u%2Fn1bvhugfZnkNdYKfc14D8LXUE2xOmOJ3z7nW%2BVoohP53o%2BOXwODeGPubnSJaXvIktMSV%2BAIfmVgFoveXm8pVSyxOVfEekqFz6nRBclxgj4zCaCsWT2rLkHeIdEYSE45BBUk%2Be6NPJOz0L&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=20251020T184503Z&X-Amz-SignedHeaders=host&X-Amz-Expires=300&X-Amz-Credential=ASIAQ3PHCVTYSJVF5Y7Y%2F20251020%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Signature=0d47d99bbb6d63347fadf1dee666ef41b1536e3d5ab18d8473f5b488a114d76e&hash=d75ff8ec0b52d8da142ba4cc2bb9bd1f2421ea23986991c5e4bf51a60527a186&host=68042c943591013ac2b2430a89b270f6af2c76d8dfd086a07176afe7c76c2c61&pii=S266615432500095X&tid=spdf-0b9748ca-4e23-4ff5-987f-e833b78088b7&sid=1c39cde96d1c83448988ef2994359948763cgxrqa&type=client&tsoh=d3d3LnNjaWVuY2VkaXJlY3QuY29t&rh=d3d3LnNjaWVuY2VkaXJlY3QuY29t&ua=1b115c5a5e0f0e055404&rr=991aab7f68b62eac&cc=au" target="_blank" rel="noopener">Commonly available street foods in Malaysia (2025)</a>
+            </li>
+            <li><a href="https://cdn.prod.website-files.com/684b55df28cddcbe52b406f2/68e8fdae3f5cf52ba37b9369_NEXUS_DP%201%20Hawkers%20Case%20Study%20-%20Final.pdf" target="_blank" rel="noopener">Hawkers & Hawking Space in Malaysia: Case Study (KRI, 2025)</a></li>
+            <li><a href="https://north-vietnam.com/prices-malaysia/" target="_blank" rel="noopener">Prices in Malaysia (guide)</a></li>
+            <li>Author: Jessica Wong Chai Fei</li>
+            <li>Date: 20/10/2025</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <button class="top" id="topBtn" aria-label="Back to top"><span class="sr">Back to top</span> ▲</button>
+
+  <script>
+    const categoryDomain = ["Desserts","Main meals","Snacks"];
+    const categoryRange  = ["#7fb3d5","#f1c232","#6aa84f"];
+    const views = {};
+    const embedOpts = { actions:false, renderer:"svg" };
+
+    function render(id, spec){
+      return vegaEmbed(id, spec, embedOpts).then(res => { views[id] = res.view; res.view.resize(); });
+    }
+
+    /* 1) MAP */
+const specMap = {
+  "$schema":"https://vega.github.io/schema/vega-lite/v5.json",
+  "autosize":{"type":"fit","contains":"padding"},
+  "width":"container","height":560,
+  "padding":{"left":10,"right":160,"top":10,"bottom":10},
+  "title":"Malaysia Hawker Foods — Total by State",
+  "projection":{"type":"mercator","center":[109,3.5],"scale":2600},
+  "background":"#e6f2ff",
+  "layer":[
+    {"data":{"graticule":{"step":[10,10]}},
+     "mark":{"type":"geoshape","stroke":"#9ca3af","strokeWidth":0.9,"strokeDash":[2,2],"fill":null}},
+    {"data":{"url":"https://raw.githubusercontent.com/jesscf08/FIT3179-Data-Visualization-2/refs/heads/main/TH.json","format":{"type":"topojson","feature":"ne_10m_admin_0_map_subunits"}},
+     "mark":{"type":"geoshape","fill":"#d1d5db","stroke":"white","strokeWidth":0.4}},
+    {"data":{"url":"https://raw.githubusercontent.com/jesscf08/FIT3179-Data-Visualization-2/refs/heads/main/ID.json","format":{"type":"topojson","feature":"ne_10m_admin_0_map_subunits"}},
+     "mark":{"type":"geoshape","fill":"#d1d5db","stroke":"white","strokeWidth":0.4}},
+    {"data":{"url":"https://raw.githubusercontent.com/jesscf08/FIT3179-Data-Visualization-2/refs/heads/main/NB.json","format":{"type":"topojson","feature":"ne_10m_admin_0_map_subunits"}},
+     "mark":{"type":"geoshape","fill":"#d1d5db","stroke":"white","strokeWidth":0.4}},
+    {
+      "data":{"url":"https://raw.githubusercontent.com/jesscf08/FIT3179-Data-Visualization-2/refs/heads/main/Malaysia_json(1).json","format":{"type":"topojson","feature":"ne_10m_admin_1_states_provinces"}},
+      "transform":[
+        {"filter":"datum.properties.adm0_a3 == 'MYS'"},
+        {"calculate":"datum.properties.name == 'Kuala Lumpur' ? 'W.P. Kuala Lumpur' : (datum.properties.name == 'Pulau Pinang' ? 'Penang' : datum.properties.name)","as":"name_csv"},
+        {"lookup":"name_csv","from":{"data":{"url":"https://raw.githubusercontent.com/jesscf08/FIT3179-DV2/main/FIT3179%20homework%2010/hawker_state_summary.csv"},"key":"state","fields":["total_state","main_meals","snacks","desserts","locations"]}}
+      ],
+      "mark":{"type":"geoshape","stroke":"white","strokeWidth":0.6},
+      "encoding":{
+        "color":{"field":"total_state","type":"quantitative","title":"Total street foods",
+                 "scale":{"type":"quantile","range":["#fff5eb","#fee6ce","#fdd0a2","#fdae6b","#fd8d3c","#e6550d","#a63603"]}},
+        "tooltip":[
+          {"field":"name_csv","title":"State"},
+          {"field":"total_state","title":"Total foods","type":"quantitative","format":","},
+          {"field":"main_meals","title":"Main meals (n)","type":"quantitative","format":","},
+          {"field":"snacks","title":"Snacks (n)","type":"quantitative","format":","},
+          {"field":"desserts","title":"Desserts (n)","type":"quantitative","format":","},
+          {"field":"locations","title":"Locations surveyed","type":"quantitative","format":","}
+        ]
+      }
+    },
+    // Annotation lines and labels for Selangor (Highest)
+    {
+      "data": {
+        "values": [{
+          "state": "Selangor",
+          "label": "Selangor\nhas\nHighest Total:\n2,345 foods",
+          "state_longitude": 101.5,
+          "state_latitude": 3.2,
+          "label_longitude": 103.5,
+          "label_latitude": 2.8,
+          "color": "#a63603"
+        }]
+      },
+      "mark": {
+        "type": "line",
+        "stroke": "#a63603",
+        "strokeWidth": 1.5,
+        "strokeDash": [3, 3]
+      },
+      "encoding": {
+        "longitude": {"field": "state_longitude", "type": "quantitative"},
+        "latitude": {"field": "state_latitude", "type": "quantitative"},
+        "longitude2": {"field": "label_longitude", "type": "quantitative"},
+        "latitude2": {"field": "label_latitude", "type": "quantitative"}
+      }
+    },
+    {
+      "data": {
+        "values": [{
+          "state": "Selangor",
+          "label": "Selangor\nhas\nHighest Total:\n2,345 foods",
+          "state_longitude": 101.5,
+          "state_latitude": 3.2,
+          "label_longitude": 103.5,
+          "label_latitude": 2.8,
+          "color": "#a63603"
+        }]
+      },
+      "mark": {
+        "type": "point",
+        "size": 60,
+        "fill": "#a63603",
+        "stroke": "white",
+        "strokeWidth": 1.5
+      },
+      "encoding": {
+        "longitude": {"field": "state_longitude", "type": "quantitative"},
+        "latitude": {"field": "state_latitude", "type": "quantitative"}
+      }
+    },
+    {
+      "data": {
+        "values": [{
+          "state": "Selangor",
+          "label": "Selangor\nhas\nHighest Total:\n2,345 foods",
+          "state_longitude": 101.5,
+          "state_latitude": 3.2,
+          "label_longitude": 103.5,
+          "label_latitude": 2.8,
+          "color": "#a63603"
+        }]
+      },
+      "mark": {
+        "type": "text",
+        "align": "left",
+        "dx": 5,
+        "fontSize": 11,
+        "fontWeight": "bold",
+        "fill": "#a63603",
+        "lineHeight": 14
+      },
+      "encoding": {
+        "longitude": {"field": "label_longitude", "type": "quantitative"},
+        "latitude": {"field": "label_latitude", "type": "quantitative"},
+        "text": {"field": "label", "type": "nominal"}
+      }
+    },
+    // Annotation lines and labels for Perlis (Lowest)
+    {
+      "data": {
+        "values": [{
+          "state": "Perlis",
+          "label": "Perlis\nhas\nLowest Total:\n109 foods",
+          "state_longitude": 100.2,
+          "state_latitude": 6.5,
+          "label_longitude": 101.5,  
+          "label_latitude": 7.2,
+          "color": "#fd8d3c"
+        }]
+      },
+      "mark": {
+        "type": "line",
+        "stroke": "#fd8d3c",
+        "strokeWidth": 1.5,
+        "strokeDash": [3, 3]
+      },
+      "encoding": {
+        "longitude": {"field": "state_longitude", "type": "quantitative"},
+        "latitude": {"field": "state_latitude", "type": "quantitative"},
+        "longitude2": {"field": "label_longitude", "type": "quantitative"},
+        "latitude2": {"field": "label_latitude", "type": "quantitative"}
+      }
+    },
+    {
+      "data": {
+        "values": [{
+          "state": "Perlis",
+          "label": "Perlis\nhas\nLowest Total:\n109 foods",
+          "state_longitude": 100.2,
+          "state_latitude": 6.5,
+          "label_longitude": 101.5,
+          "label_latitude": 7.2,
+          "color": "#fd8d3c"
+        }]
+      },
+      "mark": {
+        "type": "point",
+        "size": 60,
+        "fill": "#fd8d3c",
+        "stroke": "white",
+        "strokeWidth": 1.5
+      },
+      "encoding": {
+        "longitude": {"field": "state_longitude", "type": "quantitative"},
+        "latitude": {"field": "state_latitude", "type": "quantitative"}
+      }
+    },
+    {
+      "data": {
+        "values": [{
+          "state": "Perlis",
+          "label": "Perlis\nhas\nLowest Total:\n109 foods",
+          "state_longitude": 100.2,
+          "state_latitude": 6.5,
+          "label_longitude": 101.5,
+          "label_latitude": 7.2,
+          "color": "#fd8d3c"
+        }]
+      },
+      "mark": {
+        "type": "text",
+        "align": "left",  
+        "dx": 5,
+        "fontSize": 11,
+        "fontWeight": "bold",
+        "fill": "#fd8d3c",
+        "lineHeight": 14
+      },
+      "encoding": {
+        "longitude": {"field": "label_longitude", "type": "quantitative"},
+        "latitude": {"field": "label_latitude", "type": "quantitative"},
+        "text": {"field": "label", "type": "nominal"}
+      }
+    }
+  ],
+  "config":{"view":{"stroke":null}}
+};
+
+    /* 2) MIX  */
+const specMixByState = {
+  "$schema":"https://vega.github.io/schema/vega-lite/v5.json",
+  "autosize":{"type":"fit","contains":"padding"},
+  "padding":{"left":40, "right":170, "top":10, "bottom":40},
+  "title":"Hawker Food Mix by State (Shares of Main Meals, Snacks, Desserts)",
+  "width":"container",
+  "height":620,
+
+  "data":{"url":"https://raw.githubusercontent.com/jesscf08/FIT3179-DV2/main/FIT3179%20homework%2010/hawker_state_summary.csv"},
+
+  "params":[
+    {"name":"minLoc","value":0,"bind":{"input":"range","min":0,"max":200,"step":10,"name":"Minimum locations surveyed"}},
+    {"name":"catDropMix","value":"All","bind":{"input":"select","options":["All","Main meals","Snacks","Desserts"],"name":"Filter category: "}}
+  ],
+
+  "transform":[
+    {"filter":"datum.locations >= minLoc"},
+    {"fold":["share_main","share_snacks","share_desserts"],"as":["share_type","share"]},
+    {"calculate":"datum.share_type=='share_main' ? 'Main meals' : datum.share_type=='share_snacks' ? 'Snacks' : 'Desserts'","as":"category"}
+  ],
+
+  "layer":[
+    /* Layer A: normalized stack when All is selected */
+    {
+      "transform":[ {"filter":"catDropMix == 'All'"} ],
+      "mark":"bar",
+      "encoding":{
+        "x":{
+          "field":"state","type":"nominal",
+          "sort":{"field":"total_state","order":"descending"},
+          "title":"State / Federal Territory",
+          "axis":{"labelAngle":315,"labelAlign":"right","labelOffset":6,"labelLimit":120,"labelOverlap":false}
+        },
+        "y":{"field":"share","type":"quantitative","stack":"normalize","axis":{"format":".0%","title":"Share of hawker foods"}},
+        "color":{
+          "field":"category","type":"nominal","title":"Category",
+          "scale":{"domain":["Desserts","Main meals","Snacks"],"range":["#7fb3d5","#f1c232","#6aa84f"]}
+        },
+        "tooltip":[
+          {"field":"state","title":"State"},
+          {"field":"category","title":"Category"},
+          {"field":"share","type":"quantitative","format":".1%","title":"Share (within state)"},
+          {"field":"total_state","type":"quantitative","title":"Total foods (n)","format":","},
+          {"field":"locations","type":"quantitative","title":"Locations surveyed","format":","}
+        ]
+      }
+    },
+
+    /* Layer B: single-category bars when a category is chosen */
+    {
+      "transform":[
+        {"filter":"catDropMix != 'All'"},
+        {"filter":"datum.category == catDropMix"}
+      ],
+      "mark":"bar",
+      "encoding":{
+        "x":{
+          "field":"state","type":"nominal",
+          "sort":{"field":"total_state","order":"descending"},
+          "title":"State / Federal Territory",
+          "axis":{"labelAngle":315,"labelAlign":"right","labelOffset":6,"labelLimit":120,"labelOverlap":false}
+        },
+        "y":{"field":"share","type":"quantitative","axis":{"format":".0%","title":"Share of selected category"}},
+        "color":{
+          "field":"category","type":"nominal","legend":null,
+          "scale":{"domain":["Desserts","Main meals","Snacks"],"range":["#7fb3d5","#f1c232","#6aa84f"]}
+        },
+        "tooltip":[
+          {"field":"state","title":"State"},
+          {"field":"category","title":"Category"},
+          {"field":"share","type":"quantitative","format":".1%","title":"Share"},
+          {"field":"total_state","type":"quantitative","title":"Total foods (n)","format":","},
+          {"field":"locations","type":"quantitative","title":"Locations surveyed","format":","}
+        ]
+      }
+    }
+  ],
+
+  "config":{"legend":{"orient":"right","offset":80},"view":{"stroke":null}}
+};
+
+
+
+    /* 3) Top 20 */
+    const specTop20 = {
+      "$schema":"https://vega.github.io/schema/vega-lite/v5.json",
+      "autosize":{"type":"fit","contains":"padding"},
+      "padding":{"left":10,"right":160,"top":10,"bottom":10},
+      "title":"Top 20 Street Foods Across All Categories (by Share of Outlets)",
+      "width":"container","height":560,
+      "data":{"url":"https://raw.githubusercontent.com/jesscf08/FIT3179-Data-Visualization-2/refs/heads/main/hawker_top_foods(1).csv"},
+      "params":[{"name":"catDropTop","value":"All","bind":{"input":"select","options":["All","Main meals","Snacks","Desserts"],"name":"Filter category: "}}],
+      "transform":[
+        {"calculate":"toNumber(datum.percent)/100","as":"pct"},
+        {"filter":"catDropTop == 'All' || datum.category == catDropTop"},
+        {"window":[{"op":"rank","as":"r"}],"sort":[{"field":"pct","order":"descending"}]},
+        {"filter":"datum.r <= 20"}],
+      "layer":[
+        {"mark":{"type":"bar","height":3},
+         "encoding":{
+           "y":{"field":"food_name","type":"nominal","sort":{"field":"pct","order":"descending"},"title":null},
+           "x":{"field":"pct","type":"quantitative","title":"Percentage of outlets"},
+           "color":{"field":"category","type":"nominal","scale":{"domain":categoryDomain,"range":categoryRange}}}},
+        {"mark":{"type":"circle","size":120},
+         "encoding":{
+           "y":{"field":"food_name","type":"nominal","sort":{"field":"pct","order":"descending"}},
+           "x":{"field":"pct","type":"quantitative","axis":{"format":".1%"}},
+           "color":{"field":"category","type":"nominal","title":"Category","scale":{"domain":categoryDomain,"range":categoryRange}},
+           "tooltip":[{"field":"food_name","title":"Food"},{"field":"category","title":"Category"},{"field":"pct","type":"quantitative","format":".1%","title":"Share of outlets"},{"field":"n","type":"quantitative","title":"n (count)","format":","}]}},
+        
+      ],
+      "config":{"view":{"stroke":null}}
+    };
+
+   /* 5) Population  */
+const specPopulationCorrelation = {
+  "$schema":"https://vega.github.io/schema/vega-lite/v5.json",
+  "autosize":{"type":"fit","contains":"padding"},
+  "padding":{"left":10,"right":20,"top":10,"bottom":10},
+  "title":"Street Food Availability Patterns by State",
+  "width":"container","height":560,
+  "data":{"url":"https://raw.githubusercontent.com/jesscf08/FIT3179-Data-Visualization-2/refs/heads/main/hawker_state_summary(1).csv"},
+  "params":[
+    {
+      "name": "categoryFilter",
+      "value": "All",
+      "bind": {
+        "input": "select",
+        "options": ["All", "Main meals", "Snacks", "Desserts"],
+        "name": "Filter category: "
+      }
+    }
+  ],
+  "transform": [
+    {
+      "calculate": "categoryFilter == 'All' ? datum.total_state : categoryFilter == 'Main meals' ? datum.main_meals : categoryFilter == 'Snacks' ? datum.snacks : datum.desserts",
+      "as": "filtered_count"
+    },
+    {
+      "calculate": "categoryFilter == 'All' ? 'Total Foods' : categoryFilter",
+      "as": "filtered_label"
+    }
+  ],
+  "layer":[
+    {
+      "mark":"circle",
+      "encoding":{
+        "x":{
+          "field":"filtered_count",
+          "type":"quantitative",
+          "title": "Total Food Items", 
+          "axis":{"grid":true}
+        },
+        "y":{
+          "field":"locations",
+          "type":"quantitative",
+          "title":"Number of Locations",
+          "axis":{"grid":true}
+        },
+        "size":{
+          "field":"districts",
+          "type":"quantitative",
+          "title":"Number of Districts",
+          "scale":{"rangeMax":1000,"rangeMin":50}
+        },
+        "color":{
+          "field":"state",
+          "type":"nominal",
+          "title":"State",
+          "scale":{
+            "range":[
+              "#1f6a8a", "#c8a2c8", "#a7a7a7", "#7fb3d5", 
+              "#f1c232", "#6aa84f", "#9c5d28", "#386a20",
+              "#8b4513", "#2e8b57", "#da70d6", "#ff6347",
+              "#4682b4", "#d2b48c", "#32cd32", "#ba55d3",
+              "#ff4500"
+            ]
+          },
+          "legend": {"title": "State", "orient": "right"}
+        },
+        "tooltip":[
+          {"field":"state","type":"nominal","title":"State"},
+          {"field":"total_state","type":"quantitative","title":"Total Food Items"},
+          {"field":"main_meals","type":"quantitative","title":"Main Meals"},
+          {"field":"snacks","type":"quantitative","title":"Snacks"},
+          {"field":"desserts","type":"quantitative","title":"Desserts"},
+          {"field":"locations","type":"quantitative","title":"Number of Locations"},
+          {"field":"districts","type":"quantitative","title":"Number of Districts"},
+          {"field":"filtered_count","type":"quantitative","title":{"expr": "categoryFilter == 'All' ? 'Total Items' : categoryFilter + ' Count'"}}
+        ]
+      }
+    },
+    // Johor annotation - pointer dot
+    {
+      "data": {
+        "values": [{
+          "state": "Johor",
+          "x_pos": 570,
+          "y_pos": 194,
+          "color": "#1f6a8a"
+        }]
+      },
+      "mark": {
+        "type": "point",
+        "size": 120,
+        "fill": "#1f6a8a",
+        "stroke": "white",
+        "strokeWidth": 3
+      },
+      "encoding": {
+        "x": {"field": "x_pos", "type": "quantitative"},
+        "y": {"field": "y_pos", "type": "quantitative"}
+      }
+    },
+    // Johor annotation - connecting line
+    {
+      "data": {
+        "values": [{
+          "x_start": 570,
+          "x_end": 800,
+          "y_start": 194,
+          "y_end": 170
+        }]
+      },
+      "mark": {
+        "type": "line",
+        "stroke": "#1f6a8a",
+        "strokeWidth": 1.5,
+        "strokeDash": [3, 3]
+      },
+      "encoding": {
+        "x": {"field": "x_start", "type": "quantitative"},
+        "x2": {"field": "x_end", "type": "quantitative"},
+        "y": {"field": "y_start", "type": "quantitative"},
+        "y2": {"field": "y_end", "type": "quantitative"}
+      }
+    },
+    // Johor annotation - text 
+    {
+      "data": {
+        "values": [{
+          "annotation": "Johor: Most locations (194) suggests \nwidespread distribution",
+          "x_pos": 820,
+          "y_pos": 170,
+          "color": "#1f6a8a"
+        }]
+      },
+      "mark": {
+        "type": "text",
+        "align": "left",
+        "dx": 5,
+        "fontSize": 11,
+        "fontWeight": "bold",
+        "fill": "#1f6a8a",
+        "lineHeight": 14
+      },
+      "encoding": {
+        "x": {"field": "x_pos", "type": "quantitative"},
+        "y": {"field": "y_pos", "type": "quantitative"},
+        "text": {"field": "annotation", "type": "nominal"}
+      }
+    }
+  ],
+  "config":{
+    "view":{"stroke":null},
+    "circle":{"opacity":0.7},
+    "title":{"fontSize":20,"fontWeight":"bold"}
+  }
+};
+
+    /* 6) Land Use  */
+const specCategoryRing = {
+  "$schema":"https://vega.github.io/schema/vega-lite/v5.json",
+  "autosize":{"type":"fit","contains":"padding"},
+  "padding": { "left": 160, "right": 260, "top": 20, "bottom": 20 },
+  "title":"Share of hawker stalls by land use",
+  "width":"container","height":560,
+  "data":{"url":"https://raw.githubusercontent.com/jesscf08/FIT3179-Data-Visualization-2/refs/heads/main/hawker_stalls_land_use(1).csv"},
+  "transform":[
+    {"calculate":"toNumber(datum.Percentage)","as":"pct_num"},
+    {"calculate":"format(datum.pct_num, '.0f') + '%'","as":"pct_lbl"}
+  ],
+  "layer":[
+    {
+      "mark":{"type":"arc","stroke":"white","strokeWidth":2,"radius":205},
+      "encoding":{
+        "theta":{"field":"pct_num","type":"quantitative","stack":true},
+        "order":{"field":"Land Use","type":"nominal"},
+        "color":{
+          "field":"Land Use","type":"nominal",
+          "scale":{"range":["#1f6a8a","#c8a2c8","#a7a7a7","#7fb3d5","#f1c232","#6aa84f","#9c5d28"]},
+          "title":"Land Use",
+          "legend":{"orient":"right","offset":160, "labelLimit":240}
+        },
+        "tooltip":[
+          {"field":"Land Use","title":"Land Use"},
+          {"field":"pct_lbl","type":"nominal","title":"Share"}
+        ]
+      }
+    },
+    {
+      "mark":{"type":"text","radius":138,"fontSize":13,"fontWeight":"bold","fill":"white"},
+      "encoding":{
+        "theta":{"field":"pct_num","type":"quantitative","stack":true},
+        "order":{"field":"Land Use","type":"nominal"},
+        "color":{"field":"Land Use","type":"nominal","legend":null,
+                 "scale":{"range":["#1f6a8a","#c8a2c8","#a7a7a7","#7fb3d5","#f1c232","#6aa84f","#9c5d28"]}},
+        "text":{"field":"pct_lbl"}
+      }
+    }
+  ],
+  "config":{"view":{"stroke":null},"legend":{"orient":"right"}}
+};
+
+
+
+    /* 7) Stall Types  */
+const specStallsBubbles = {
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+  "autosize": {"type": "fit", "contains": "padding"},
+  "padding": {"left": 10, "right": 140, "top": 10, "bottom": 10},
+  "title": "Number of Hawker Stalls by Category",
+  "width": "container",
+  "height": 520,
+  "data": {"url": "https://raw.githubusercontent.com/jesscf08/FIT3179-Data-Visualization-2/refs/heads/main/hawker_stalls_category(1).csv"},
+  "transform": [
+    {"calculate": "datum['Number of Stalls']", "as": "n"},
+    {"calculate": "datum.Category", "as": "category_label"},
+    {"calculate": "format(datum.n, ',')", "as": "number_label"},
+    {"calculate": "sqrt(datum.n) * 0.8", "as": "radius"},
+    {"calculate": "datum.Category == 'Metal stall' ? 45 : " +
+                 "datum.Category == 'Large stall' ? 75 : " +
+                 "datum.Category == 'One piece' ? 60 : " +
+                 "datum.Category == 'Restaurant' ? 30 : " +
+                 "datum.Category == 'Table' ? 15 : " +
+                 "datum.Category == 'Food truck' ? 85 : " +
+                 "datum.Category == 'Wheeled' ? 90 : " +
+                 "datum.Category == 'Market' ? 5 : 50", "as": "xpos"},
+    {"calculate": "datum.Category == 'Metal stall' ? 50 : " +
+                 "datum.Category == 'Large stall' ? 65 : " +
+                 "datum.Category == 'One piece' ? 35 : " +
+                 "datum.Category == 'Restaurant' ? 70 : " +
+                 "datum.Category == 'Table' ? 25 : " +
+                 "datum.Category == 'Food truck' ? 80 : " +
+                 "datum.Category == 'Wheeled' ? 15 : " +
+                 "datum.Category == 'Market' ? 85 : 50", "as": "ypos"}
+  ],
+  "layer": [
+    {
+      "mark": {"type": "circle","opacity": 0.85,"stroke": "white","strokeWidth": 2},
+      "encoding": {
+        "x": {"field": "xpos","type": "quantitative","title": null,"axis": null,"scale": {"domain": [0, 100]}},
+        "y": {"field": "ypos","type": "quantitative","title": null,"axis": null,"scale": {"domain": [0, 100]}},
+        "size": {
+          "field": "n",
+          "type": "quantitative",
+          "title": "Number of Stalls",
+          "scale": {"rangeMin": 550, "rangeMax":8700},
+          "legend": {"title": "Number of Stalls", "orient": "right"}
+        },
+        "color": {
+          "field": "Category","type": "nominal","title": "Hawker Stall Category",
+          "scale": {"range": ["#1f6a8a", "#c8a2c8", "#a7a7a7", "#7fb3d5", "#f1c232", "#6aa84f", "#9c5d28", "#386a20"]},
+          "legend": {"title": "Stall Category", "orient": "right"}
+        },
+        "tooltip": [
+          {"field": "Category", "title": "Stall Type"},
+          {"field": "n", "type": "quantitative", "title": "Count", "format": ","}
+        ]
+      }
+    },
+    {
+      "mark": {"type": "text","fontSize": 12,"fontWeight": "bold","fill": "white","align": "center"},
+      "encoding": {
+        "x": {"field": "xpos","type": "quantitative","axis": null,"scale": {"domain": [0, 100]}},
+        "y": {"field": "ypos","type": "quantitative","axis": null,"scale": {"domain": [0, 100]}},
+        "text": {"field": "number_label","type": "nominal"}
+      }
+    }
+  ],
+  "config": {"view": {"stroke": null}}
+};
+
+
+    /* Embed */
+    render("#visMap", specMap);
+    render("#vis1",  specMixByState);
+    render("#vis2",  specTop20);
+    render("#vis6",  specPopulationCorrelation);
+    render("#vis7",  specCategoryRing);
+    render("#vis8",  specStallsBubbles);
+
+    /* Back to top */
+    const topBtn=document.getElementById('topBtn');
+    const showTop=()=>{const y=window.scrollY||document.documentElement.scrollTop; if(y>400) topBtn.classList.add('show'); else topBtn.classList.remove('show')};
+    showTop(); window.addEventListener('scroll',showTop);
+    topBtn.addEventListener('click',()=>window.scrollTo({top:0,behavior:'smooth'}));
+    window.addEventListener('resize',()=>{Object.values(views).forEach(v=>v && v.resize())});
+  </script>
+</body>
+</html>
